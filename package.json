@@ -1,0 +1,19 @@
+{
+  "name": "social-worker",
+  "version": "1.0.0",
+  "description": "Social network integrator",
+  "main": "entry.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.14.1",
+    "cors": "^2.7.1",
+    "express": "^4.13.3",
+    "gruew-logger": "^1.0.2",
+    "jsonfile": "^2.2.3",
+    "request": "^2.67.0"
+  }
+}
