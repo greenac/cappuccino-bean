@@ -1,5 +1,7 @@
 *idea
 node_modules
+instagram_token.json
+nodemon.json
 output.log
 # Elastic Beanstalk Files
 .elasticbeanstalk/*

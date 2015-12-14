@@ -14,6 +14,7 @@
     "express": "^4.13.3",
     "gruew-logger": "^1.0.2",
     "jsonfile": "^2.2.3",
-    "request": "^2.67.0"
+    "request": "^2.67.0",
+    "underscore": "^1.8.3"
   }
 }
