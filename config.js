@@ -15,5 +15,12 @@ module.exports = {
             accessTokenPath: '/oauth/access_token',
             recentMediaPath: '/v1/users/self/media/recent'
         }
+    },
+    databaseInfo: {
+        database: 'mercedworks',
+        collection: 'entries',
+        baseUri: 'http://localhost:9042/',
+        savePath: 'save-records/',
+        getPath: 'all-records/'
     }
 };

@@ -14,9 +14,9 @@ function App() {
             instagramController.fetchAccessToken();
         } else if (process.argv.length > 2 && process.argv[2] === 'media') {
             var instagramController = new InstagramController();
-            instagramController.fetchRecentMedia(function(error) {
+            instagramController.fetchRecentMedia(function(error, data) {
                 if (error) {
-                    logger.log(['could not retrieve media', error], __filename, true);
+                    logger.log(['could not retrieve media:', error], __filename, true);
                     return;
                 }
 

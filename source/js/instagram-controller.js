@@ -7,7 +7,7 @@ var logger = require('gruew-logger');
 var queryString = require('querystring');
 var async = require('async');
 var https = require('https');
-var path = require('path');
+var requestJson = require('request-json');
 
 
 function InstagramController(key, redirectUri) {
@@ -15,6 +15,9 @@ function InstagramController(key, redirectUri) {
     this.redirectUri = redirectUri;
     this.accessToken = null;
     this.accessData = null;
+    this.recentMedia = null;
+    this.dbMedia = null;
+    this.mediaToSave = null;
 
     this.fetchAccessToken = function (callback) {
         async.series([
@@ -163,7 +166,28 @@ function InstagramController(key, redirectUri) {
         }.bind(this));
     };
 
+    this.fetchRecentMedia = function(callback) {
+        async.series([
+            this.getParameters.bind(this),
+            this._getRecentMedia.bind(this),
+            this._recentMediaFromDb.bind(this),
+            this._saveRecentMedia.bind(this)
+        ], function (error) {
+            if (error) {
+                logger.log(['Failed to fetch recent media', error], __filename, true);
+                return;
+            }
+
+            callback(null, this.mediaToSave);
+        }.bind(this));
+    };
+
     this._getRecentMedia = function (callback) {
+        if (!this.accessToken) {
+            callback(new Error('no access token'));
+            return;
+        }
+
         var params = {
             access_token: this.accessToken
         };
@@ -193,39 +217,104 @@ function InstagramController(key, redirectUri) {
                     this._parseRecentMedia(media.data);
                 }
 
-                logger.log(['Received recent media'], __filename, false);
+                logger.log(['Received recent media', this.recentMedia], __filename, false);
                 callback();
             }.bind(this));
         }.bind(this));
 
         req.on('error', function(error) {
-            console.log('error here');
             callback(error);
         });
 
         req.end();
     };
 
-    this.fetchRecentMedia = function(callback) {
-        this.getParameters(function() {
-            if (!this.accessToken) {
-                callback(new Error('no access token'));
+    this._recentMediaFromDb = function(callback) {
+        if (!this.recentMedia) {
+            callback(new Error('no recent media'));
+            return;
+        }
+
+        var data = {
+            database: config.databaseInfo.database,
+            collection: config.databaseInfo.collection
+        };
+
+        var client = requestJson.createClient(config.databaseInfo.baseUri);
+        client.post(config.databaseInfo.getPath, data, function (err, res, data) {
+            if (err) {
+                logger.log(['Failed to retrieve entries from db:', err], __filename, true);
+                callback(new Error('Failed to retrieve entries from db'));
                 return;
             }
 
-            this._getRecentMedia(callback);
+            logger.log(['Posted to database. Response:', data], __filename, false);
+            this.dbMedia = data.result;
+            callback();
+        }.bind(this));
+    };
+
+    this._saveRecentMedia = function (callback) {
+        if (!this.recentMedia || this.recentMedia.length === 0 || !this.dbMedia) {
+            logger.log(['could not save media to db. media is empty'], __filename, true);
+            callback(new Error('could not save media to db. media is empty'));
+            return;
+        }
+
+        this.mediaToSave = [];
+        _.each(this.recentMedia, function(entry) {
+            var shouldAdd = true;
+            for (var i=0; i < this.dbMedia.length; i++) {
+                var dbEntry = this.dbMedia[i];
+                if (dbEntry.link === entry.link) {
+                    shouldAdd = false;
+                    break;
+                }
+            }
+
+            if (shouldAdd) {
+                this.mediaToSave.push(entry);
+            }
+        }, this);
+
+        if (this.mediaToSave.length === 0) {
+            logger.log(['No new entries to save'], __filename, false);
+            callback();
+            return;
+        }
+
+        logger.log(['Media to save', this.mediaToSave], __filename, false);
+
+        var data = {
+            database: config.databaseInfo.database,
+            collection: config.databaseInfo.collection,
+            payload: this.mediaToSave
+        };
+
+        var client = requestJson.createClient(config.databaseInfo.baseUri);
+        client.post(config.databaseInfo.savePath, data, function (err, res, data) {
+            if (err) {
+                callback(err);
+                return;
+            }
+
+            logger.log(['Posted to database. Response:', this.mediaToSave], __filename, false);
+            callback();
         }.bind(this));
     };
 
     this._parseRecentMedia = function (media) {
-        var info = {};
+        var info = [];
         _.each(media, function (entry) {
-            info[entry.link] = {
+            info.push({
+                link: entry.link,
                 pic: entry.images['standard_resolution'].url,
                 text: entry.caption.text,
                 timeCreated: entry['created_time']
-            };
+            });
         });
+
+        this.recentMedia = info;
     };
 
     this.constructUriPath = function(params) {
